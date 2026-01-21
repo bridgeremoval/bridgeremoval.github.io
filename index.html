@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Learning Stochastic Bridges for Video Object Removal">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Name - Academic Project Page</title>
+
+  <!-- 引入 Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <!-- 引入 Bulma CSS 框架 (常用于学术主页) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  
+  <!-- 图标库 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- MathJax for LaTeX rendering -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+      }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    /* 自定义样式 */
+    body {
+      font-family: 'Noto Sans', sans-serif;
+      background-color: #ffffff;
+    }
+    .hero-body {
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .title.is-1 {
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 700;
+    }
+    .publication-title {
+      font-size: 1.75rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      line-height: 1.3;
+      max-width: 1600px;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 2rem;
+    }
+    
+    /* 在大屏幕上使用更大的字体 */
+    @media screen and (min-width: 1600px) {
+      .publication-title {
+        font-size: 2rem;
+      }
+    }
+    .abstract-text {
+      text-align: justify;
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+    
+    /* 视频滑竿容器样式 - 复刻 TwentyTwenty 风格 */
+    .video-compare-container {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 比例 */
+      overflow: hidden;
+      border-radius: 8px;
+      background: #000;
+      margin-bottom: 1rem;
+      cursor: ew-resize; /* 鼠标样式 */
+    }
+    
+    .video-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 底层视频 (After/Ours) */
+    .video-after {
+      z-index: 1;
+    }
+
+    /* 顶层视频 (Before) - 使用 clip-path 裁剪 */
+    .video-before {
+      z-index: 2;
+      clip-path: inset(0 50% 0 0); /* 初始显示左侧 50% */
+    }
+
+    .video-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    /* 滑杆分割线 */
+    .slider-line {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 3px;
+      height: 100%;
+      background: #fff;
+      z-index: 3;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      transform: translateX(-50%);
+    }
+    
+    /* 滑动控制手柄 - 仿 TwentyTwenty */
+    .slider-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: #fff;
+      border-radius: 50%;
+      z-index: 3;
+      box-shadow: 0 0 12px rgba(51, 51, 51, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    /* 手柄内的箭头 */
+    .slider-handle::before, .slider-handle::after {
+      content: " ";
+      display: block;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      position: absolute;
+    }
+    .slider-handle::before {
+      border-right: 6px solid #444;
+      left: 8px;
+    }
+    .slider-handle::after {
+      border-left: 6px solid #444;
+      right: 8px;
+    }
+
+    /* 标签样式 - 模仿 ROSE：默认隐藏，悬停时显示，拖动时隐藏 */
+    .label-overlay {
+      position: absolute;
+      bottom: 15px;
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      z-index: 4;
+      pointer-events: none;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      opacity: 0; /* 默认隐藏 */
+      transition: opacity 0.3s;
+    }
+    /* 鼠标悬停时标签显示 */
+    .video-compare-container:hover .label-overlay {
+      opacity: 0.8;
+    }
+    /* 拖动时标签隐藏 */
+    .video-compare-container.dragging .label-overlay {
+      opacity: 0;
+    }
+    
+    .label-left { left: 15px; }
+    .label-right { right: 15px; }
+
+    /* 其他对比图网格 */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .grid-item video, .grid-item img {
+      width: 100%;
+      border-radius: 6px;
+    }
+    .grid-caption {
+      text-align: center;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      font-weight: 600;
+    }
+    
+    /* --- 轮播图 (Carousel) 样式 --- */
+    .carousel-row {
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: visible; /* 在宽屏时允许按钮显示在外面 */
+    }
+    .carousel-container {
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+    }
+    .carousel-track {
+      display: flex;
+      transition: transform 0.5s ease-in-out;
+      width: 100%;
+    }
+    .carousel-item {
+      min-width: 100%; /* 默认一次显示一个，可改为 50% 一次显示俩 */
+      padding: 0 10px; /* 间距 */
+      box-sizing: border-box;
+    }
+    
+    /* 轮播导航按钮 */
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: background 0.3s;
+    }
+    .carousel-btn:hover { background: rgba(0,0,0,0.8); }
+    .carousel-btn.prev { left: 10px; }
+    .carousel-btn.next { right: 10px; }
+    
+    /* 响应式：宽屏时按钮移到外面 */
+    @media (min-width: 1200px) {
+      .carousel-btn.prev { left: -50px; }
+      .carousel-btn.next { right: -50px; }
+    }
+    
+    /* Footer 样式 - 与 ROSE 对齐 */
+    .footer {
+      background-color: #fafafa;
+      padding: 3rem 1.5rem;
+    }
+    .icon-link {
+      display: inline-block;
+      cursor: default;
+      transition: opacity 0.2s;
+    }
+    .icon-link:hover {
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 标题部分 -->
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container" style="max-width: 1800px;">
+        <div class="columns is-centered">
+          <div class="column is-11 has-text-centered">
+            <h1 class="title is-1 publication-title">
+              Learning Stochastic Bridges for Video Object Removal<br>
+              via Video-to-Video Translation
+            </h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Anonymous Authors</span>
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="#" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                    <span>Paper</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 核心功能：滑竿对比 (Video Slider Carousel) -->
+  <section class="section">
+    <div class="container" style="max-width: 1100px;">
+
+      <!-- ========== 横屏视频样式 (每行3个) ========== -->
+      <style>
+        /* 横屏轮播：一次显示3个 */
+        .carousel-horizontal .carousel-track {
+          display: flex;
+          transition: transform 0.5s ease-in-out;
+        }
+        .carousel-horizontal .carousel-item {
+          min-width: calc(100% / 3); /* 一次显示3个 */
+          padding: 0 5px;
+          box-sizing: border-box;
+        }
+        /* 横屏视频 16:9 比例 */
+        .carousel-horizontal .video-compare-container {
+          padding-bottom: 56.25%;
+        }
+        
+        /* 竖屏轮播：一次显示5个 */
+        .carousel-portrait .carousel-track {
+          display: flex;
+          transition: transform 0.5s ease-in-out;
+        }
+        .carousel-portrait .carousel-item {
+          min-width: calc(100% / 5); /* 一次显示5个 */
+          padding: 0 3px;
+          box-sizing: border-box;
+        }
+        /* 竖屏视频 9:16 比例 */
+        .carousel-portrait .video-compare-container {
+          padding-bottom: 177.78%; /* 9:16 = 16/9 * 100% */
+        }
+      </style>
+      
+      <!-- ========================================== -->
+      <!-- 横屏视频 Row 1: 显示3个，轮播10个 (DAVIS dataset) -->
+      <!-- ========================================== -->
+      <div class="carousel-row">
+        <button class="carousel-btn prev" onclick="moveCarouselMulti('h1', -1, 3)"><i class="fas fa-chevron-left"></i></button>
+        <div class="carousel-container carousel-horizontal" id="h1">
+          <div class="carousel-track">
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v1_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v1_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v2_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v2_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v3_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v3_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v4_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v4_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v5_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v5_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v6_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v6_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 7 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v7_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v7_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 8 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v8_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v8_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 9 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v9_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v9_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 10 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v10_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h1_v10_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-btn next" onclick="moveCarouselMulti('h1', 1, 3)"><i class="fas fa-chevron-right"></i></button>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 横屏视频 Row 2: 显示3个，轮播10个 (BridgeRemoval-Bench landscape) -->
+      <!-- ========================================== -->
+      <div class="carousel-row">
+        <button class="carousel-btn prev" onclick="moveCarouselMulti('h2', -1, 3)"><i class="fas fa-chevron-left"></i></button>
+        <div class="carousel-container carousel-horizontal" id="h2">
+          <div class="carousel-track">
+            <!-- 横屏视频 1 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v1_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v1_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 2 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v2_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v2_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 3 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v3_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v3_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 4 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v4_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v4_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 5 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v5_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v5_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 6 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v6_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v6_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 7 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v7_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v7_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 8 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v8_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v8_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 9 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v9_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v9_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 横屏视频 10 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v10_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/h2_v10_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-btn next" onclick="moveCarouselMulti('h2', 1, 3)"><i class="fas fa-chevron-right"></i></button>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 竖屏视频 Row 3: 显示5个，轮播10个 (BridgeRemoval-Bench portrait) -->
+      <!-- ========================================== -->
+      <div class="carousel-row">
+        <button class="carousel-btn prev" onclick="moveCarouselMulti('p1', -1, 5)"><i class="fas fa-chevron-left"></i></button>
+        <div class="carousel-container carousel-portrait" id="p1">
+          <div class="carousel-track">
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v1_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v1_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 2 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v2_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v2_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 3 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v3_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v3_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 4 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v4_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v4_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 5 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v5_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v5_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 6 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v6_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v6_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 7 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v7_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v7_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 8 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v8_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v8_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 9 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v9_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v9_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+            <!-- 竖屏视频 10 -->
+            <div class="carousel-item">
+              <div class="video-compare-container">
+                <div class="video-wrapper video-after">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v10_result.mp4"></video>
+                  <div class="label-overlay label-right">After</div>
+                </div>
+                <div class="video-wrapper video-before">
+                  <video class="video-content" autoplay muted loop playsinline src="./assets/p1_v10_input.mp4"></video>
+                  <div class="label-overlay label-left">Before</div>
+                </div>
+                <div class="slider-line"></div>
+                <div class="slider-handle"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-btn next" onclick="moveCarouselMulti('p1', 1, 5)"><i class="fas fa-chevron-right"></i></button>
+      </div>
+
+      <!-- Video row descriptions -->
+      <div class="has-text-centered mt-6 mb-5">
+        <ol style="display: inline-block; text-align: left; font-size: 1.1rem;">
+          <li><strong>Row 1</strong>: DAVIS dataset.</li>
+          <li><strong>Row 2</strong>: BridgeRemoval-Bench landscape videos.</li>
+          <li><strong>Row 3</strong>: BridgeRemoval-Bench portrait videos.</li>
+        </ol>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 分隔线 -->
+  <hr style="max-width: 800px; margin: 3rem auto; border: none; border-top: 1px solid #ddd;">
+
+  <!-- 摘要部分 -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">Abstract</h2>
+          <div class="content has-text-justified">
+            <p class="abstract-text">
+              Existing video object removal methods predominantly rely on diffusion models following a noise-to-data paradigm, where generation starts from uninformative Gaussian noise. This approach discards the rich structural and contextual priors present in the original input video. Consequently, such methods often lack sufficient guidance, leading to incomplete object erasure or the synthesis of implausible content that conflicts with the scene's physical logic. In this paper, we reformulate video object removal as a video-to-video translation task via a stochastic bridge model. Unlike noise-initialized methods, our framework establishes a direct stochastic path from the source video (with objects) to the target video (objects removed). This bridge formulation effectively leverages the input video as a strong structural prior, guiding the model to perform precise removal while ensuring that the filled regions are logically consistent with the surrounding environment. To address the trade-off where strong bridge priors hinder the removal of large objects, we propose a novel adaptive mask modulation strategy. This mechanism dynamically modulates input embeddings based on mask characteristics, balancing background fidelity with generative flexibility. Extensive experiments demonstrate that our approach significantly outperforms existing methods in both visual quality and temporal consistency.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 方法架构图 -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Method</h2>
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <div class="content has-text-justified mb-4">
+            <p>
+              The video inputs are projected into latent space using a frozen VAE. Unlike standard diffusion, we employ a VP-SDE Bridge formulation to interpolate a trajectory ($z_t$) directly from the source video prior ($z_{\text{src}}$) to the clean target ($z_{\text{tgt}}$). The DiT-based model is conditioned on text embeddings ($c_{\text{text}}$) and a spatial input formed by concatenating the mask ($z_{\text{M}}$) with the source latent ($z_{\text{src}}$), optimized via a velocity-matching objective ($\mathcal{L}_{\text{bridge}}$).
+            </p>
+          </div>
+          <!-- 方法架构图 -->
+          <div class="has-text-centered">
+            <img src="./assets/network.png" alt="Method Overview" style="max-width: 100%; border-radius: 8px;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- Progressive Generation Comparison -->
+  <!-- ========================================== -->
+  <section class="section">
+    <div class="container is-max-desktop">
+      <h2 class="title is-3 has-text-centered">Ours vs Diffusion-based Methods</h2>
+      <p class="has-text-centered mb-5" style="color: #666; font-size: 1rem;">
+        Visualization of the generation process from step 0 to step 50.
+      </p>
+
+      <!-- 内联样式 -->
+      <style>
+        .progressive-row {
+          margin-bottom: 3rem;
+        }
+        .progressive-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 8px;
+          align-items: end;
+          margin-bottom: 0.5rem;
+        }
+        .progressive-cell {
+          text-align: center;
+          position: relative;
+        }
+        .progressive-cell video {
+          width: 100%;
+          border-radius: 6px;
+          background: #000;
+          aspect-ratio: 9/16; /* 竖屏视频比例 */
+          object-fit: contain;
+        }
+        .step-label {
+          font-family: 'Times New Roman', Times, serif;
+          font-size: 0.85rem;
+          color: #333;
+          margin-top: 0.3rem;
+          text-align: center;
+        }
+        /* 箭头样式 */
+        .arrow-cell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          color: #666;
+          text-align: center;
+          line-height: 1;
+        }
+        .method-name {
+          font-family: 'Times New Roman', Times, serif;
+          font-size: 1.1rem;
+          color: #333;
+          text-align: center;
+          margin-top: 0.8rem;
+          font-weight: 500;
+        }
+        /* 响应式：小屏幕滚动 */
+        @media (max-width: 1024px) {
+          .progressive-grid {
+            grid-template-columns: repeat(6, 120px);
+            overflow-x: auto;
+            padding-bottom: 10px;
+          }
+        }
+      </style>
+
+      <!-- Row 1: Diffusion-based ROSE -->
+      <div class="progressive-row">
+        <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 0.5rem;">
+          <!-- Step 0 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step0.mp4"></video>
+            <div class="step-label">step=0</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 10 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step10.mp4"></video>
+            <div class="step-label">step=10</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 20 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step20.mp4"></video>
+            <div class="step-label">step=20</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 30 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step30.mp4"></video>
+            <div class="step-label">step=30</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 40 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step40.mp4"></video>
+            <div class="step-label">step=40</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 50 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/diffusion_step50.mp4"></video>
+            <div class="step-label">step=50</div>
+          </div>
+        </div>
+        <div class="method-name">Diffusion-based ROSE</div>
+      </div>
+
+      <!-- Row 2: Bridge-based Ours -->
+      <div class="progressive-row">
+        <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 0.5rem;">
+          <!-- Step 0 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step0.mp4"></video>
+            <div class="step-label">step=0</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 10 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step10.mp4"></video>
+            <div class="step-label">step=10</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 20 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step20.mp4"></video>
+            <div class="step-label">step=20</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 30 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step30.mp4"></video>
+            <div class="step-label">step=30</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 40 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step40.mp4"></video>
+            <div class="step-label">step=40</div>
+          </div>
+          <div class="arrow-cell">⋯→</div>
+          <!-- Step 50 -->
+          <div class="progressive-cell">
+            <video autoplay muted loop playsinline src="./assets/progressive/bridge_step50.mp4"></video>
+            <div class="step-label">step=50</div>
+          </div>
+        </div>
+        <div class="method-name">Stochastic Bridge (Ours)</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- Comparisons with SOTA Methods -->
+  <!-- ========================================== -->
+  <section class="section">
+    <div class="container" style="max-width: 1000px;">
+      <h2 class="title is-3 has-text-centered">Comparisons with SOTA Methods</h2>
+      <p class="has-text-centered mb-5">
+        Click on a video thumbnail to view comparison results.
+      </p>
+
+      <!-- 内联样式 -->
+      <style>
+        /* 视频缩略图选择器 */
+        .video-selector {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 10px;
+          margin-bottom: 2rem;
+        }
+        .video-thumb {
+          width: 90px;
+          height: 60px;
+          border-radius: 6px;
+          cursor: pointer;
+          object-fit: cover;
+          border: 3px solid transparent;
+          transition: all 0.3s ease;
+          opacity: 0.7;
+        }
+        .video-thumb:hover {
+          opacity: 1;
+          transform: scale(1.05);
+        }
+        .video-thumb.active {
+          border-color: #4CAF50;
+          opacity: 1;
+          box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        /* 对比结果网格 */
+        .comparison-result {
+          display: none; /* 默认隐藏 */
+        }
+        .comparison-result.active {
+          display: block;
+        }
+        
+        /* 横屏视频：5列布局 */
+        .comparison-grid-landscape {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+          margin-bottom: 2rem;
+        }
+        
+        /* 竖屏视频：5列布局，视频更窄 */
+        .comparison-grid-portrait {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+          margin-bottom: 2rem;
+        }
+        
+        .comparison-cell {
+          text-align: center;
+        }
+        .comparison-cell video {
+          width: 100%;
+          height: 180px; /* 固定高度，让所有视频对齐 */
+          border-radius: 6px;
+          background: #000;
+          object-fit: contain; /* 保持长宽比，不裁剪 */
+        }
+        
+        /* 竖屏视频使用更高的高度 */
+        .comparison-grid-portrait .comparison-cell video {
+          height: 280px;
+        }
+        
+        /* 算法名称标签 */
+        .method-label {
+          margin-top: 0.5rem;
+          font-size: 0.9rem;
+          font-family: 'Times New Roman', Times, serif;
+          color: #333;
+          text-align: center;
+        }
+        
+        /* 响应式：小屏幕改为滚动 */
+        @media (max-width: 1024px) {
+          .comparison-grid-landscape,
+          .comparison-grid-portrait {
+            grid-template-columns: repeat(5, 200px);
+            overflow-x: auto;
+            padding-bottom: 10px;
+          }
+        }
+      </style>
+
+      <!-- 视频缩略图选择器 (10个视频) -->
+      <div class="video-selector">
+        <img class="video-thumb active" src="./assets/compare/thumb_1.png" data-id="1" onclick="showComparison(1)" alt="Scene 1">
+        <img class="video-thumb" src="./assets/compare/thumb_2.png" data-id="2" onclick="showComparison(2)" alt="Scene 2">
+        <img class="video-thumb" src="./assets/compare/thumb_3.png" data-id="3" onclick="showComparison(3)" alt="Scene 3">
+        <img class="video-thumb" src="./assets/compare/thumb_4.png" data-id="4" onclick="showComparison(4)" alt="Scene 4">
+        <img class="video-thumb" src="./assets/compare/thumb_5.png" data-id="5" onclick="showComparison(5)" alt="Scene 5">
+        <img class="video-thumb" src="./assets/compare/thumb_6.png" data-id="6" onclick="showComparison(6)" alt="Scene 6">
+        <img class="video-thumb" src="./assets/compare/thumb_7.png" data-id="7" onclick="showComparison(7)" alt="Scene 7">
+        <img class="video-thumb" src="./assets/compare/thumb_8.png" data-id="8" onclick="showComparison(8)" alt="Scene 8">
+        <img class="video-thumb" src="./assets/compare/thumb_9.png" data-id="9" onclick="showComparison(9)" alt="Scene 9">
+        <img class="video-thumb" src="./assets/compare/thumb_10.png" data-id="10" onclick="showComparison(10)" alt="Scene 10">
+      </div>
+
+      <!-- 对比结果容器 (10组，每组5个视频) -->
+      <!-- Scene 1 (横屏视频) -->
+      <div class="comparison-result active" id="compare-1">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene1_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene1_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene1_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene1_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene1_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 2 (横屏视频) -->
+      <div class="comparison-result" id="compare-2">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene2_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene2_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene2_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene2_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene2_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 3 (横屏视频) -->
+      <div class="comparison-result" id="compare-3">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene3_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene3_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene3_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene3_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene3_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 4 (横屏视频) -->
+      <div class="comparison-result" id="compare-4">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene4_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene4_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene4_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene4_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene4_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 5 (横屏视频) -->
+      <div class="comparison-result" id="compare-5">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene5_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene5_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene5_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene5_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene5_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 6 (横屏视频) -->
+      <div class="comparison-result" id="compare-6">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene6_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene6_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene6_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene6_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene6_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 7 (横屏视频) -->
+      <div class="comparison-result" id="compare-7">
+        <div class="comparison-grid-landscape">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene7_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene7_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene7_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene7_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene7_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 8 (竖屏视频) -->
+      <div class="comparison-result" id="compare-8">
+        <div class="comparison-grid-portrait">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene8_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene8_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene8_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene8_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene8_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 9 (竖屏视频) -->
+      <div class="comparison-result" id="compare-9">
+        <div class="comparison-grid-portrait">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene9_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene9_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene9_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene9_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene9_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 10 (竖屏视频) -->
+      <div class="comparison-result" id="compare-10">
+        <div class="comparison-grid-portrait">
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene10_masked.mp4"></video>
+            <div class="method-label">Masked Video</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene10_ours.mp4"></video>
+            <div class="method-label">Ours</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene10_rose.mp4"></video>
+            <div class="method-label">ROSE (NeurIPS 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene10_vace.mp4"></video>
+            <div class="method-label">VACE (ICCV 2025)</div>
+          </div>
+          <div class="comparison-cell">
+            <video autoplay muted loop playsinline src="./assets/compare/scene10_genomni.mp4"></video>
+            <div class="method-label">GenOmnimatte (CVPR 2025)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="content has-text-centered">
+        <!-- 致谢文字 -->
+        <div class="columns is-centered">
+          <div class="column is-8">
+            <p style="color: #4a4a4a;">
+              This website template is borrowed from <a href="https://github.com/sczhou/ProPainter_website" target="_blank" style="color: #3273dc;">Here</a>. 
+              Feel free to clone this website's <a href="https://bridgeremoval.github.io/" target="_blank" style="color: #3273dc;">source code</a>. Thank you!
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript: 处理视频滑竿交互 + 轮播逻辑 -->
+  <script>
+    // --- 轮播图逻辑 (Carousel Logic with Infinite Loop) ---
+    const carousels = {};
+
+    /**
+     * 初始化轮播：克隆首尾slides实现真正的无限循环
+     * @param {string} id - 轮播容器 ID
+     * @param {number} visibleCount - 一次显示的 item 数量
+     */
+    function initCarousel(id, visibleCount) {
+      const container = document.getElementById(id);
+      const track = container.querySelector('.carousel-track');
+      const items = Array.from(track.querySelectorAll('.carousel-item'));
+      const totalItems = items.length;
+      
+      // 克隆首尾的slides（克隆visibleCount个）
+      const cloneCount = visibleCount;
+      
+      // 克隆最后的 cloneCount 个 items，添加到开头
+      for (let i = totalItems - cloneCount; i < totalItems; i++) {
+        const clone = items[i].cloneNode(true);
+        clone.classList.add('carousel-clone');
+        track.insertBefore(clone, track.firstChild);
+      }
+      
+      // 克隆最前的 cloneCount 个 items，添加到末尾
+      for (let i = 0; i < cloneCount; i++) {
+        const clone = items[i].cloneNode(true);
+        clone.classList.add('carousel-clone');
+        track.appendChild(clone);
+      }
+      
+      // 初始化状态
+      carousels[id] = {
+        currentIndex: 0,  // 真实索引（0-9）
+        totalItems: totalItems,
+        cloneCount: cloneCount,
+        visibleCount: visibleCount,
+        isTransitioning: false
+      };
+      
+      // 设置初始位置：跳到第一个真实item（跳过前面的克隆）
+      const itemWidthPercent = 100 / visibleCount;
+      track.style.transition = 'none';
+      track.style.transform = `translateX(-${cloneCount * itemWidthPercent}%)`;
+      
+      // 强制重绘
+      track.offsetHeight;
+    }
+
+    /**
+     * 移动轮播
+     * @param {string} id - 轮播容器 ID
+     * @param {number} direction - 移动方向 (-1 左, 1 右)
+     * @param {number} visibleCount - 一次显示的 item 数量
+     */
+    function moveCarouselMulti(id, direction, visibleCount) {
+      const container = document.getElementById(id);
+      const track = container.querySelector('.carousel-track');
+      
+      // 确保已初始化
+      if (!carousels[id]) {
+        initCarousel(id, visibleCount);
+      }
+      
+      const state = carousels[id];
+      
+      // 防止快速点击
+      if (state.isTransitioning) return;
+      
+      state.isTransitioning = true;
+      
+      // 更新索引
+      state.currentIndex += direction;
+      
+      // 计算实际位置（包括克隆的slides）
+      const itemWidthPercent = 100 / visibleCount;
+      const actualIndex = state.cloneCount + state.currentIndex;
+      const translatePercent = actualIndex * itemWidthPercent;
+      
+      // 执行动画
+      track.style.transition = 'transform 0.5s ease';
+      track.style.transform = `translateX(-${translatePercent}%)`;
+      
+      // 动画结束后检查是否需要重置位置
+      setTimeout(() => {
+        let needReset = false;
+        let resetIndex = 0;
+        
+        // 如果超出右边界（滑到克隆的首部）
+        if (state.currentIndex >= state.totalItems) {
+          needReset = true;
+          resetIndex = 0;
+          state.currentIndex = 0;
+        }
+        // 如果超出左边界（滑到克隆的尾部）
+        else if (state.currentIndex < 0) {
+          needReset = true;
+          resetIndex = state.totalItems - 1;
+          state.currentIndex = state.totalItems - 1;
+        }
+        
+        // 无动画重置位置
+        if (needReset) {
+          track.style.transition = 'none';
+          const resetTranslate = (state.cloneCount + resetIndex) * itemWidthPercent;
+          track.style.transform = `translateX(-${resetTranslate}%)`;
+          track.offsetHeight; // 强制重绘
+        }
+        
+        state.isTransitioning = false;
+      }, 500);
+    }
+
+    // 页面加载后初始化所有轮播
+    document.addEventListener('DOMContentLoaded', function() {
+      initCarousel('h1', 3);  // 横屏视频 Row 1
+      initCarousel('h2', 3);  // 横屏视频 Row 2
+      initCarousel('p1', 5);  // 竖屏视频 Row 3
+    });
+
+    // --- 算法对比切换逻辑 (Comparison Selector) ---
+    function showComparison(id) {
+      // 1. 更新缩略图选中状态
+      document.querySelectorAll('.video-thumb').forEach(thumb => {
+        thumb.classList.remove('active');
+        if (parseInt(thumb.dataset.id) === id) {
+          thumb.classList.add('active');
+        }
+      });
+      
+      // 2. 切换对比结果显示
+      document.querySelectorAll('.comparison-result').forEach(result => {
+        result.classList.remove('active');
+      });
+      const targetResult = document.getElementById(`compare-${id}`);
+      if (targetResult) {
+        targetResult.classList.add('active');
+        
+        // 3. 重新播放所有视频（确保同步）
+        targetResult.querySelectorAll('video').forEach(video => {
+          video.currentTime = 0;
+          video.play();
+        });
+      }
+    }
+
+    // --- 滑竿交互逻辑 (Slider Logic) ---
+    // 监听所有滑竿容器（包括动态轮播里的）
+    document.querySelectorAll('.video-compare-container').forEach(container => {
+      const sliderHandle = container.querySelector('.slider-handle');
+      const sliderLine = container.querySelector('.slider-line');
+      const videoBefore = container.querySelector('.video-before');
+      
+      // 视频同步播放逻辑
+      const video1 = container.querySelector('.video-before video');
+      const video2 = container.querySelector('.video-after video');
+      
+      // 确保两个视频尽量同步
+      if(video1 && video2) {
+        video1.onplay = () => { if(video2.paused) video2.play(); };
+        video1.onpause = () => { if(!video2.paused) video2.pause(); };
+        video1.onseeking = () => { video2.currentTime = video1.currentTime; };
+        // 定期校准
+        setInterval(() => {
+          if (Math.abs(video1.currentTime - video2.currentTime) > 0.1) {
+            video2.currentTime = video1.currentTime;
+          }
+        }, 1000);
+      }
+
+      // 滑动交互逻辑
+      let isDragging = false;
+
+      const updateSlider = (x) => {
+        const rect = container.getBoundingClientRect();
+        let position = ((x - rect.left) / rect.width) * 100;
+        
+        // 限制范围在 0% 到 100%
+        position = Math.max(0, Math.min(100, position));
+        
+        // 使用 clip-path 裁剪 before 视频（只显示左侧部分）
+        videoBefore.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
+        
+        // 更新分割线位置
+        if (sliderLine) {
+          sliderLine.style.left = `${position}%`;
+        }
+        
+        // 更新手柄位置
+        sliderHandle.style.left = `${position}%`;
+      };
+
+      // 鼠标/触摸事件
+      const startDrag = (e) => {
+        isDragging = true;
+        container.classList.add('dragging'); // 添加拖动类以隐藏标签
+        updateSlider(e.clientX || e.touches[0].clientX);
+      };
+      
+      const stopDrag = () => {
+        isDragging = false;
+        container.classList.remove('dragging'); // 移除拖动类以显示标签
+      };
+      
+      const onDrag = (e) => {
+        if (!isDragging) return;
+        updateSlider(e.clientX || e.touches[0].clientX);
+      };
+
+      // 绑定事件到容器，以便点击任意位置都能跳转
+      container.addEventListener('mousedown', startDrag);
+      container.addEventListener('touchstart', startDrag);
+
+      window.addEventListener('mouseup', stopDrag);
+      window.addEventListener('touchend', stopDrag);
+
+      window.addEventListener('mousemove', onDrag);
+      window.addEventListener('touchmove', onDrag);
+    });
+  </script>
+
+</body>
+</html>
