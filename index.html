@@ -1418,42 +1418,137 @@
 
   <!-- JavaScript: 处理视频滑竿交互 + 轮播逻辑 -->
   <script>
-    // --- 视频懒加载逻辑 (Lazy Loading with Intersection Observer) ---
+    // --- 视频懒加载逻辑 (Priority-based Lazy Loading) ---
+    // 全局变量，方便其他模块访问
+    const VideoLoader = {
+      loadedVideos: new Set(),
+      allVideos: [],
+      videoObserver: null,
+      backgroundLoadIndex: 0,
+      isBackgroundLoading: false,
+      
+      // 加载视频的函数（只负责设置src和load，不负责播放）
+      loadVideo: function(video) {
+        const videoSrc = video.getAttribute('data-src');
+        
+        if (videoSrc && !video.src && !this.loadedVideos.has(video)) {
+          this.loadedVideos.add(video);
+          video.src = videoSrc;
+          video.load();
+          return true; // 返回是否成功加载
+        }
+        return video.src ? true : false; // 如果已有src也返回true
+      },
+      
+      // 观察新视频（用于处理动态添加的克隆元素）
+      observeVideo: function(video) {
+        if (this.videoObserver && !this.allVideos.includes(video)) {
+          this.allVideos.push(video);
+          this.videoObserver.observe(video);
+        }
+      },
+      
+      // 确保视频已加载并播放
+      ensureLoadedAndPlay: function(video) {
+        if (!video) return;
+        
+        if (this.loadVideo(video)) {
+          // 视频已有src，尝试播放
+          if (video.readyState >= 2) {
+            video.play().catch(e => {});
+          } else {
+            video.addEventListener('loadeddata', function() {
+              video.play().catch(e => {});
+            }, { once: true });
+          }
+        }
+      }
+    };
+    
     document.addEventListener('DOMContentLoaded', function() {
-      // 创建 Intersection Observer，设置提前加载距离（rootMargin）
-      const videoObserver = new IntersectionObserver((entries, observer) => {
+      VideoLoader.allVideos = Array.from(document.querySelectorAll('.lazy-video'));
+      
+      // 创建 Intersection Observer，用于优先加载可见和即将可见的视频
+      VideoLoader.videoObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
+          const video = entry.target;
+          
           if (entry.isIntersecting) {
-            const video = entry.target;
-            const videoSrc = video.getAttribute('data-src');
+            // 进入视口：加载并播放
+            VideoLoader.loadVideo(video);
             
-            if (videoSrc && !video.src) {
-              // 加载视频
-              video.src = videoSrc;
-              video.load();
-              
-              // 尝试播放（因为设置了 autoplay）
-              video.play().catch(e => {
-                // 某些浏览器可能阻止自动播放，静默处理错误
-                console.log('Autoplay prevented:', e);
-              });
-              
-              // 可选：加载完成后停止观察该视频
-              // observer.unobserve(video);
-              // 注释掉上面这行，让视频继续被观察，以便在离开视口时可以暂停（如果需要）
+            // 确保视频已加载src后才播放
+            if (video.src) {
+              if (video.readyState >= 2) {
+                video.play().catch(e => {});
+              } else {
+                video.addEventListener('loadeddata', function playOnce() {
+                  video.play().catch(e => {});
+                }, { once: true });
+              }
             }
           }
         });
       }, {
-        // 提前加载：当视频距离视口 500px 时就开始加载
-        rootMargin: '500px 0px',
+        // 提前加载：当视频距离视口 800px 时就开始加载
+        rootMargin: '800px 0px',
         threshold: 0.01
       });
 
-      // 观察所有懒加载视频
-      document.querySelectorAll('.lazy-video').forEach(video => {
-        videoObserver.observe(video);
+      // 观察所有视频（高优先级加载）
+      VideoLoader.allVideos.forEach(video => {
+        VideoLoader.videoObserver.observe(video);
       });
+      
+      // 后台加载剩余视频的函数（低优先级）
+      function loadNextBackgroundVideo() {
+        if (VideoLoader.backgroundLoadIndex >= VideoLoader.allVideos.length) {
+          VideoLoader.isBackgroundLoading = false;
+          console.log('✅ 所有视频已加载完成！(' + VideoLoader.loadedVideos.size + '/' + VideoLoader.allVideos.length + ')');
+          return;
+        }
+        
+        const video = VideoLoader.allVideos[VideoLoader.backgroundLoadIndex];
+        VideoLoader.backgroundLoadIndex++;
+        
+        // 如果这个视频还没被加载（不在视口内的视频）
+        if (!VideoLoader.loadedVideos.has(video)) {
+          VideoLoader.loadVideo(video); // 只加载，不播放
+          
+          // 每10个视频打印一次进度
+          if (VideoLoader.loadedVideos.size % 10 === 0) {
+            console.log('🔄 加载进度: ' + VideoLoader.loadedVideos.size + '/' + VideoLoader.allVideos.length + ' 视频');
+          }
+        }
+        
+        // 继续加载下一个视频（间隔 200ms，避免阻塞主线程）
+        setTimeout(loadNextBackgroundVideo, 200);
+      }
+      
+      // 页面加载完成后，延迟 2 秒开始后台加载
+      setTimeout(() => {
+        if (!VideoLoader.isBackgroundLoading) {
+          VideoLoader.isBackgroundLoading = true;
+          console.log('🔄 开始后台加载剩余视频...');
+          loadNextBackgroundVideo();
+        }
+      }, 2000);
+      
+      // 监听用户交互（滚动、点击），也触发后台加载
+      let hasInteracted = false;
+      function startBackgroundLoadOnInteraction() {
+        if (!hasInteracted) {
+          hasInteracted = true;
+          if (!VideoLoader.isBackgroundLoading) {
+            VideoLoader.isBackgroundLoading = true;
+            console.log('🔄 用户交互，开始后台加载...');
+            setTimeout(loadNextBackgroundVideo, 500);
+          }
+        }
+      }
+      
+      window.addEventListener('scroll', startBackgroundLoadOnInteraction, { once: true });
+      window.addEventListener('click', startBackgroundLoadOnInteraction, { once: true });
     });
 
     // --- 轮播图逻辑 (Carousel Logic with Infinite Loop) ---
@@ -1478,6 +1573,11 @@
         const clone = items[i].cloneNode(true);
         clone.classList.add('carousel-clone');
         track.insertBefore(clone, track.firstChild);
+        
+        // 为克隆的视频添加懒加载观察
+        clone.querySelectorAll('.lazy-video').forEach(video => {
+          VideoLoader.observeVideo(video);
+        });
       }
       
       // 克隆最前的 cloneCount 个 items，添加到末尾
@@ -1485,6 +1585,11 @@
         const clone = items[i].cloneNode(true);
         clone.classList.add('carousel-clone');
         track.appendChild(clone);
+        
+        // 为克隆的视频添加懒加载观察
+        clone.querySelectorAll('.lazy-video').forEach(video => {
+          VideoLoader.observeVideo(video);
+        });
       }
       
       // 初始化状态
@@ -1594,87 +1699,131 @@
       if (targetResult) {
         targetResult.classList.add('active');
         
-        // 3. 重新播放所有视频（确保同步）
+        // 3. 确保视频加载后再同步播放
         targetResult.querySelectorAll('video').forEach(video => {
+          // 先确保视频已加载
+          VideoLoader.loadVideo(video);
+          
           video.currentTime = 0;
-          video.play();
+          
+          // 确保视频准备好后再播放
+          if (video.readyState >= 2) {
+            video.play().catch(e => {});
+          } else {
+            video.addEventListener('loadeddata', function() {
+              video.currentTime = 0;
+              video.play().catch(e => {});
+            }, { once: true });
+          }
         });
       }
     }
 
     // --- 滑竿交互逻辑 (Slider Logic) ---
-    // 监听所有滑竿容器（包括动态轮播里的）
-    document.querySelectorAll('.video-compare-container').forEach(container => {
-      const sliderHandle = container.querySelector('.slider-handle');
-      const sliderLine = container.querySelector('.slider-line');
-      const videoBefore = container.querySelector('.video-before');
+    // 使用事件委托来处理所有滑竿容器（包括动态克隆的）
+    (function initSliderInteraction() {
+      let currentDraggingContainer = null;
       
-      // 视频同步播放逻辑
-      const video1 = container.querySelector('.video-before video');
-      const video2 = container.querySelector('.video-after video');
-      
-      // 确保两个视频尽量同步
-      if(video1 && video2) {
-        video1.onplay = () => { if(video2.paused) video2.play(); };
-        video1.onpause = () => { if(!video2.paused) video2.pause(); };
-        video1.onseeking = () => { video2.currentTime = video1.currentTime; };
-        // 定期校准
-        setInterval(() => {
-          if (Math.abs(video1.currentTime - video2.currentTime) > 0.1) {
-            video2.currentTime = video1.currentTime;
-          }
-        }, 1000);
+      // 初始化单个容器的视频同步
+      function initVideoSync(container) {
+        if (container.dataset.syncInitialized) return; // 避免重复初始化
+        container.dataset.syncInitialized = 'true';
+        
+        const video1 = container.querySelector('.video-before video');
+        const video2 = container.querySelector('.video-after video');
+        
+        if (video1 && video2) {
+          video1.onplay = () => { if(video2.paused) video2.play().catch(e => {}); };
+          video1.onpause = () => { if(!video2.paused) video2.pause(); };
+          video1.onseeking = () => { video2.currentTime = video1.currentTime; };
+          
+          // 定期校准（每个容器一个定时器可能太多，改为全局校准）
+        }
       }
-
-      // 滑动交互逻辑
-      let isDragging = false;
-
-      const updateSlider = (x) => {
+      
+      // 全局视频同步校准（减少定时器数量）
+      setInterval(() => {
+        document.querySelectorAll('.video-compare-container').forEach(container => {
+          const video1 = container.querySelector('.video-before video');
+          const video2 = container.querySelector('.video-after video');
+          if (video1 && video2 && video1.src && video2.src) {
+            if (Math.abs(video1.currentTime - video2.currentTime) > 0.1) {
+              video2.currentTime = video1.currentTime;
+            }
+          }
+        });
+      }, 1000);
+      
+      // 更新滑杆位置
+      function updateSlider(container, x) {
         const rect = container.getBoundingClientRect();
         let position = ((x - rect.left) / rect.width) * 100;
-        
-        // 限制范围在 0% 到 100%
         position = Math.max(0, Math.min(100, position));
         
-        // 使用 clip-path 裁剪 before 视频（只显示左侧部分）
-        videoBefore.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
+        const videoBefore = container.querySelector('.video-before');
+        const sliderLine = container.querySelector('.slider-line');
+        const sliderHandle = container.querySelector('.slider-handle');
         
-        // 更新分割线位置
-        if (sliderLine) {
-          sliderLine.style.left = `${position}%`;
+        if (videoBefore) videoBefore.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
+        if (sliderLine) sliderLine.style.left = `${position}%`;
+        if (sliderHandle) sliderHandle.style.left = `${position}%`;
+      }
+      
+      // 事件委托：监听整个文档
+      document.addEventListener('mousedown', function(e) {
+        const container = e.target.closest('.video-compare-container');
+        if (container) {
+          currentDraggingContainer = container;
+          container.classList.add('dragging');
+          initVideoSync(container); // 确保视频同步已初始化
+          updateSlider(container, e.clientX);
         }
-        
-        // 更新手柄位置
-        sliderHandle.style.left = `${position}%`;
-      };
-
-      // 鼠标/触摸事件
-      const startDrag = (e) => {
-        isDragging = true;
-        container.classList.add('dragging'); // 添加拖动类以隐藏标签
-        updateSlider(e.clientX || e.touches[0].clientX);
-      };
+      });
       
-      const stopDrag = () => {
-        isDragging = false;
-        container.classList.remove('dragging'); // 移除拖动类以显示标签
-      };
+      document.addEventListener('touchstart', function(e) {
+        const container = e.target.closest('.video-compare-container');
+        if (container) {
+          currentDraggingContainer = container;
+          container.classList.add('dragging');
+          initVideoSync(container);
+          updateSlider(container, e.touches[0].clientX);
+        }
+      }, { passive: true });
       
-      const onDrag = (e) => {
-        if (!isDragging) return;
-        updateSlider(e.clientX || e.touches[0].clientX);
-      };
-
-      // 绑定事件到容器，以便点击任意位置都能跳转
-      container.addEventListener('mousedown', startDrag);
-      container.addEventListener('touchstart', startDrag);
-
-      window.addEventListener('mouseup', stopDrag);
-      window.addEventListener('touchend', stopDrag);
-
-      window.addEventListener('mousemove', onDrag);
-      window.addEventListener('touchmove', onDrag);
-    });
+      window.addEventListener('mouseup', function() {
+        if (currentDraggingContainer) {
+          currentDraggingContainer.classList.remove('dragging');
+          currentDraggingContainer = null;
+        }
+      });
+      
+      window.addEventListener('touchend', function() {
+        if (currentDraggingContainer) {
+          currentDraggingContainer.classList.remove('dragging');
+          currentDraggingContainer = null;
+        }
+      });
+      
+      window.addEventListener('mousemove', function(e) {
+        if (currentDraggingContainer) {
+          updateSlider(currentDraggingContainer, e.clientX);
+        }
+      });
+      
+      window.addEventListener('touchmove', function(e) {
+        if (currentDraggingContainer) {
+          updateSlider(currentDraggingContainer, e.touches[0].clientX);
+        }
+      }, { passive: true });
+      
+      // 初始化所有现有容器的视频同步
+      document.addEventListener('DOMContentLoaded', function() {
+        // 延迟执行，确保轮播克隆完成
+        setTimeout(() => {
+          document.querySelectorAll('.video-compare-container').forEach(initVideoSync);
+        }, 100);
+      });
+    })();
   </script>
 
 </body>
