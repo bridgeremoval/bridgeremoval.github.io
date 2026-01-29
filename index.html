@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="description" content="Learning Stochastic Bridges for Video Object Removal">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Project Name - Academic Project Page</title>
+  <title>BridgeRemoval – Wait a few minutes for videos to load</title>
 
   <!-- 引入 Google Fonts -->
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
@@ -855,7 +855,7 @@
         <div class="column is-full-width">
           <div class="content has-text-justified mb-4">
             <p>
-              The video inputs are projected into latent space using a frozen VAE. Unlike standard diffusion, we employ a VP-SDE Bridge formulation to interpolate a trajectory ($z_t$) directly from the source video prior ($z_{\text{src}}$) to the clean target ($z_{\text{tgt}}$). The DiT-based model is conditioned on text embeddings ($c_{\text{text}}$) and a spatial input formed by concatenating the mask ($z_{\text{M}}$) with the source latent ($z_{\text{src}}$), optimized via a velocity-matching objective ($\mathcal{L}_{\text{bridge}}$).
+              The video inputs are projected into latent space using a frozen VAE encoder. Unlike standard diffusion, we employ a VP-SDE Bridge formulation to interpolate a trajectory ($z_t$) directly from the source video prior ($z_{\text{src}}$) to the clean target ($z_{\text{tgt}}$). The DiT-based model is conditioned on text embeddings ($c_{\text{text}}$) and a spatial input formed by concatenating the mask ($z_{\text{M}}$) with the source latent ($z_{\text{src}}$), optimized via a velocity-matching objective ($\mathcal{L}_{\text{bridge}}$).
             </p>
           </div>
           <!-- 方法架构图 -->
@@ -1531,13 +1531,6 @@
       }, 500);
     }
 
-    // 页面加载后初始化所有轮播
-    document.addEventListener('DOMContentLoaded', function() {
-      initCarousel('h1', 3);  // 横屏视频 Row 1
-      initCarousel('h2', 3);  // 横屏视频 Row 2
-      initCarousel('p1', 5);  // 竖屏视频 Row 3
-    });
-
     // --- 算法对比切换逻辑 (Comparison Selector) ---
     function showComparison(id) {
       // 1. 更新缩略图选中状态
@@ -1565,8 +1558,12 @@
     }
 
     // --- 滑竿交互逻辑 (Slider Logic) ---
-    // 监听所有滑竿容器（包括动态轮播里的）
-    document.querySelectorAll('.video-compare-container').forEach(container => {
+    // 【修复】将滑杆事件绑定封装成函数，以便在轮播初始化（克隆元素）后重新绑定
+    function bindSliderEvents(container) {
+      // 如果已经绑定过，跳过（通过自定义属性标记）
+      if (container.dataset.sliderBound === 'true') return;
+      container.dataset.sliderBound = 'true';
+      
       const sliderHandle = container.querySelector('.slider-handle');
       const sliderLine = container.querySelector('.slider-line');
       const videoBefore = container.querySelector('.video-before');
@@ -1588,7 +1585,7 @@
         }, 1000);
       }
 
-      // 滑动交互逻辑
+      // 滑动交互逻辑 - 使用闭包存储拖动状态
       let isDragging = false;
 
       const updateSlider = (x) => {
@@ -1614,30 +1611,57 @@
       const startDrag = (e) => {
         isDragging = true;
         container.classList.add('dragging'); // 添加拖动类以隐藏标签
-        updateSlider(e.clientX || e.touches[0].clientX);
+        const clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+        updateSlider(clientX);
       };
       
       const stopDrag = () => {
-        isDragging = false;
-        container.classList.remove('dragging'); // 移除拖动类以显示标签
+        if (isDragging) {
+          isDragging = false;
+          container.classList.remove('dragging'); // 移除拖动类以显示标签
+        }
       };
       
       const onDrag = (e) => {
         if (!isDragging) return;
-        updateSlider(e.clientX || e.touches[0].clientX);
+        const clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+        updateSlider(clientX);
       };
 
       // 绑定事件到容器，以便点击任意位置都能跳转
       container.addEventListener('mousedown', startDrag);
       container.addEventListener('touchstart', startDrag);
 
+      // 为了避免事件监听器重复添加，使用容器自身的引用来管理
+      // 将 stopDrag 和 onDrag 存储到容器上，以便在需要时移除
+      container._sliderStopDrag = stopDrag;
+      container._sliderOnDrag = onDrag;
+
       window.addEventListener('mouseup', stopDrag);
       window.addEventListener('touchend', stopDrag);
-
       window.addEventListener('mousemove', onDrag);
       window.addEventListener('touchmove', onDrag);
+    }
+
+    // 【修复】为所有滑竿容器绑定事件（包括克隆的元素）
+    function bindAllSliderEvents() {
+      document.querySelectorAll('.video-compare-container').forEach(container => {
+        bindSliderEvents(container);
+      });
+    }
+
+    // 页面加载后初始化所有轮播，然后绑定滑杆事件
+    document.addEventListener('DOMContentLoaded', function() {
+      // 1. 先初始化轮播（这会克隆元素）
+      initCarousel('h1', 3);  // 横屏视频 Row 1
+      initCarousel('h2', 3);  // 横屏视频 Row 2
+      initCarousel('p1', 5);  // 竖屏视频 Row 3
+      
+      // 2. 轮播初始化后，为所有容器（包括克隆的）绑定滑杆事件
+      bindAllSliderEvents();
     });
   </script>
 
 </body>
 </html>
+
